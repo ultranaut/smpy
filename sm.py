@@ -46,6 +46,8 @@ def parse_log(logfile):
   root = {}
   dirpattern = re.compile('/([^/]*)')
   phppattern = re.compile('\.php$')
+  trackable = ['php', 'html', 'pdf']
+  skippable = ['blogs', 'doubleclick', 'email', 'fb', 'includes', 'lib', 'rest', 'scripts']
 
   '''
    open log file
@@ -90,15 +92,14 @@ def parse_log(logfile):
       if not path:
         path = 'root'
 
-      # if not a php or html doc, skip it
       extension = os.path.splitext(file)[1].lstrip('.').lower()
-      if not extension == 'php' and not extension == 'html':
+      if extension not in trackable:
         continue
 
       current = root
       if not path == 'root':
         dirs = re.findall(dirpattern, path)
-        if dirs[0] == 'blogs':
+        if dirs[0] in skippable:
           continue
         for dir in dirs:
           if re.search(phppattern, dir):
@@ -116,8 +117,33 @@ def parse_log(logfile):
   fh.close()
   return {'root':root}
 
+def create_links(tree, cwd=''):
+  """Create sitemap links from a directory tree
+
+  Args:
+    tree: dict representing directory structure
+    cwd: string with "current working directory"
+
+  Return:
+    String of html
+  """
+  html = []
+  for el in sorted(tree.iterkeys()):
+    if type(tree[el]) is not dict:
+      html.append('<a href="#">%s/%s</a>' % (cwd, el))
+    else:
+      html.append('<div data-dir="%s">' % (el))
+      html.extend(create_links(tree[el], '/'.join([cwd, el])))
+      html.append('</div>')
+  return html
 
 def finish_job(msg=None, status=0):
+  """Output an optional message and exit
+
+  Args:
+    msg: message string
+    status: integer exit status
+  """
   if msg:
     print msg
   sys.exit(status)
@@ -130,9 +156,14 @@ def main():
     finish_job('No logfile given', 1)
 
   tree = parse_log(logfile)
+  html = create_links(tree['root'])
 
-  pp = pprint.PrettyPrinter()
-  pp.pprint(tree['root'])
+  #pp = pprint.PrettyPrinter()
+  #pp.pprint(tree['root'])
+  fh = open('./map.html', 'w')
+
+  with open('./map.html', 'w') as fh:
+    fh.write('\n'.join(html))
 
   finish_job()
 
