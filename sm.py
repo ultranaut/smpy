@@ -117,7 +117,7 @@ def parse_log(logfile):
   fh.close()
   return {'root':root}
 
-def create_links(tree, cwd=''):
+def create_map(tree, cwd=''):
   """Create sitemap links from a directory tree
 
   Args:
@@ -127,15 +127,15 @@ def create_links(tree, cwd=''):
   Return:
     String of html
   """
-  html = []
+  list = []
   for el in sorted(tree.iterkeys()):
     if type(tree[el]) is not dict:
-      html.append('<a href="#">%s/%s</a>' % (cwd, el))
+      list.append('<li><a href="#">%s/%s</a></li>' % (cwd, el))
     else:
-      html.append('<div data-dir="%s">' % (el))
-      html.extend(create_links(tree[el], '/'.join([cwd, el])))
-      html.append('</div>')
-  return html
+      list.append('<li data-dir="%s">%s<ul>' % (el,el))
+      list.extend(create_map(tree[el], '/'.join([cwd, el])))
+      list.append('</ul></li>')
+  return list
 
 def finish_job(msg=None, status=0):
   """Output an optional message and exit
@@ -156,14 +156,14 @@ def main():
     finish_job('No logfile given', 1)
 
   tree = parse_log(logfile)
-  html = create_links(tree['root'])
+  html = create_map(tree['root'])
 
   #pp = pprint.PrettyPrinter()
   #pp.pprint(tree['root'])
-  fh = open('./map.html', 'w')
 
-  with open('./map.html', 'w') as fh:
-    fh.write('\n'.join(html))
+  with open("map.html", "wt") as out:
+    for line in open("template.html"):
+      out.write(line.replace('{{ map }}', '\n'.join(html)))
 
   finish_job()
 
