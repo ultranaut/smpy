@@ -43,11 +43,34 @@ def parse_entry(entry):
 
 
 def parse_log(logfile):
-  root = {}
+  root = {'food': {'recipes': {}}, 'articles': {}}
+  recipes_dir = root['food']['recipes']
+  articles_dir = root['articles']
+
+  trackable = ['php', 'html', 'pdf']
+  skippable = {
+      'paths': [
+        'account',
+        'blogs',
+        'doubleclick',
+        'email',
+        'fb',
+        'includes',
+        'jw',
+        'lib',
+        'rest',
+        'scripts'
+      ],
+      'files': [
+        'recipeindex.php',
+        'email_friend.php',
+      ]
+  }
+
   dirpattern = re.compile('/([^/]*)')
   phppattern = re.compile('\.php$')
-  trackable = ['php', 'html', 'pdf']
-  skippable = ['blogs', 'doubleclick', 'email', 'fb', 'includes', 'lib', 'rest', 'scripts']
+  recipe_query = re.compile('recipe_id=[0-9]+')
+  article_query = re.compile('article_id=[0-9]+')
 
   '''
    open log file
@@ -93,13 +116,13 @@ def parse_log(logfile):
         path = 'root'
 
       extension = os.path.splitext(file)[1].lstrip('.').lower()
-      if extension not in trackable:
+      if extension not in trackable or file in skippable['files']:
         continue
 
       current = root
       if not path == 'root':
         dirs = re.findall(dirpattern, path)
-        if dirs[0] in skippable:
+        if dirs[0] in skippable['paths']:
           continue
         for dir in dirs:
           if re.search(phppattern, dir):
@@ -110,6 +133,21 @@ def parse_log(logfile):
           elif not dir in current:
             current[dir] = {}
           current = current[dir]
+
+      if file == 'recipe.php':
+        current = recipes_dir
+        has_id = re.search(recipe_query, query)
+        if not has_id:
+          continue
+        else:
+          file = '%s?%s' % (file, has_id.group())
+      if file == 'article.php':
+        current = articles_dir
+        has_id = re.search(article_query, query)
+        if not has_id:
+          continue
+        else:
+          file = '%s?%s' % (file, has_id.group())
 
       if not file in current:
         current[file] = None
@@ -130,11 +168,14 @@ def create_map(tree, cwd=''):
   list = []
   for el in sorted(tree.iterkeys()):
     if type(tree[el]) is not dict:
-      list.append('<li><a href="#">%s/%s</a></li>' % (cwd, el))
+      list.append('<li><a href="%s/%s" class="dir-url">%s</a></li>' % (cwd, el, el))
     else:
-      list.append('<li data-dir="%s">%s<ul>' % (el,el))
-      list.extend(create_map(tree[el], '/'.join([cwd, el])))
-      list.append('</ul></li>')
+      if len(tree[el]) == 1:
+        list.append('<li><a href="%s/%s" class="dir-url">%s</a></li>' % (cwd, el, el))
+      else:
+        list.append('<li class="dir"><div class="dir-label %s"><span>%s</span></div><ul class="%s">' % (el, el, el))
+        list.extend(create_map(tree[el], '/'.join([cwd, el])))
+        list.append('</ul></li>')
   return list
 
 def finish_job(msg=None, status=0):
