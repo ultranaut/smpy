@@ -43,7 +43,15 @@ def parse_entry(entry):
 
 
 def parse_log(logfile):
-  root = {'food': {'recipes': {}}, 'articles': {}}
+  root = {
+      'food': {
+        'recipes': { 'include': 'includes/recipes.php' },
+        'sets': { 'include': 'includes/sets.php' }
+      },
+      'articles': {
+        'include': 'includes/articles.php'
+      }
+    }
   recipes_dir = root['food']['recipes']
   articles_dir = root['articles']
 
@@ -64,8 +72,13 @@ def parse_log(logfile):
       'files': [
         'recipeindex.php',
         'email_friend.php',
+        'recipe.php',
+        'article.php',
+        'mla.pdf',
+        'sets.php',
+        'food_results.php'
       ]
-  }
+    }
 
   dirpattern = re.compile('/([^/]*)')
   phppattern = re.compile('\.php$')
@@ -134,21 +147,6 @@ def parse_log(logfile):
             current[dir] = {}
           current = current[dir]
 
-      if file == 'recipe.php':
-        current = recipes_dir
-        has_id = re.search(recipe_query, query)
-        if not has_id:
-          continue
-        else:
-          file = '%s?%s' % (file, has_id.group())
-      if file == 'article.php':
-        current = articles_dir
-        has_id = re.search(article_query, query)
-        if not has_id:
-          continue
-        else:
-          file = '%s?%s' % (file, has_id.group())
-
       if not file in current:
         current[file] = None
 
@@ -170,8 +168,10 @@ def create_map(tree, cwd=''):
     if type(tree[el]) is not dict:
       list.append('<li><a href="%s/%s" class="dir-url">%s</a></li>' % (cwd, el, el))
     else:
-      if len(tree[el]) == 1:
-        list.append('<li><a href="%s/%s" class="dir-url">%s</a></li>' % (cwd, el, el))
+      if len(tree[el]) == 1 and 'index.php' in tree[el]:
+        list.append('<li><a href="%s/%s/index.php" class="dir-url">%s</a></li>' % (cwd, el, el))
+      elif len(tree[el]) == 1 and 'include' in tree[el]:
+        list.append('<li class="dir"><div class="dir-label %s"><span>%s</span></div><ul class="%s"><?php include "%s"; ?></ul></li>' % (el, el, el, tree[el]['include']))
       else:
         list.append('<li class="dir"><div class="dir-label %s"><span>%s</span></div><ul class="%s">' % (el, el, el))
         list.extend(create_map(tree[el], '/'.join([cwd, el])))
@@ -202,9 +202,8 @@ def main():
   #pp = pprint.PrettyPrinter()
   #pp.pprint(tree['root'])
 
-  with open("map.html", "wt") as out:
-    for line in open("template.html"):
-      out.write(line.replace('{{ map }}', '\n'.join(html)))
+  with open("map.php", "wt") as out:
+    out.write('\n'.join(html))
 
   finish_job()
 
